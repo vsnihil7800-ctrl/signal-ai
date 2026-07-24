@@ -1,0 +1,390 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  watchlists   Watchlist[]
+  portfolios   Portfolio[]
+  settings     Settings?
+  chatHistories ChatHistory[]
+}
+
+model Watchlist {
+  id        String   @id @default(uuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tickers   String   // Stored as JSON array string or comma separated
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Stock {
+  id            String   @id @default(uuid())
+  ticker        String   @unique
+  name          String
+  sector        String
+  industry      String
+  price         Float
+  change        Float
+  changePercent Float
+  lastUpdated   DateTime @default(now())
+  syncError     String?
+  exchange      String   @default("NSE")
+}
+
+model Article {
+  id             String         @id @default(uuid())
+  title          String
+  url            String         @unique
+  source         String
+  publishedAt    DateTime
+  content        String
+  ticker         String?        // optional associated ticker
+  newsSentiment  NewsSentiment?
+}
+
+model NewsSentiment {
+  id        String   @id @default(uuid())
+  articleId String   @unique
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  sentiment String   // positive / negative / neutral
+  score     Float
+  eventType String   // earnings, mergers, product launches, etc.
+  createdAt DateTime @default(now())
+}
+
+model Signal {
+  id               String   @id @default(uuid())
+  ticker           String
+  recommendation   String   // Bullish / Bearish / Neutral
+  confidence       Float
+  riskLevel        String   // Low / Medium / High
+  technicalScore   Float
+  sentimentScore   Float
+  fundamentalScore Float
+  macroScore       Float
+  volatilityScore  Float
+  reasoning        String
+  createdAt        DateTime @default(now())
+}
+
+model Backtest {
+  id                  String   @id @default(uuid())
+  name                String
+  ticker              String
+  cagr                Float
+  winRate             Float
+  maxDrawdown         Float
+  sharpeRatio         Float
+  trainingWindowStart String
+  trainingWindowEnd   String
+  numSamples          Int
+  metrics             String   // JSON string of detailed metrics
+  createdAt           DateTime @default(now())
+}
+
+model Portfolio {
+  id             String   @id @default(uuid())
+  name           String
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assets         String   // JSON string of asset allocations
+  allocation     Float
+  sharpeRatio    Float
+  volatility     Float
+  expectedReturn Float
+  riskScore      Float
+  createdAt      DateTime @default(now())
+}
+
+model SportsFixture {
+  id          String       @id @default(uuid())
+  sport       String       // football, cricket, basketball
+  league      String
+  homeTeam    String
+  awayTeam    String
+  eventDate   DateTime
+  status      String       // scheduled / finished
+  homeScore   Int?
+  awayScore   Int?
+  rawData     String       // JSON string of original source data
+  createdAt   DateTime     @default(now())
+  predictions Prediction[]
+}
+
+model Prediction {
+  id                  String        @id @default(uuid())
+  fixtureId           String
+  fixture             SportsFixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  predictedWinner     String
+  homeProb            Float
+  awayProb            Float
+  drawProb            Float
+  confidence          Float
+  riskLevel           String
+  precision           Float
+  recall              Float
+  f1Score             Float
+  calibrationScore    Float
+  numSamples          Int
+  trainingWindow      String
+  reason              String
+  outcomeMatched      Boolean?      // null if fixture has not finished, true/false when outcome is validated
+  lastValidationDate  DateTime?
+  createdAt           DateTime      @default(now())
+}
+
+model ModelMetric {
+  id                 String    @id @default(uuid())
+  modelName          String
+  type               String    // stocks / sports
+  precision          Float
+  recall             Float
+  f1                 Float
+  calibration        Float
+  sampleCount        Int
+  lastValidationDate DateTime
+  createdAt          DateTime  @default(now())
+}
+
+model EconomicEvent {
+  id               String   @id @default(uuid())
+  title            String
+  description      String
+  eventDate        DateTime
+  country          String
+  actual           Float?
+  forecast         Float?
+  previous         Float?
+  impact           String   // High / Medium / Low
+  affectedSectors  String   // JSON array of strings
+  createdAt        DateTime @default(now())
+}
+
+model ChatHistory {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionName String
+  messages    String   // JSON array of message objects
+  createdAt   DateTime @default(now())
+}
+
+model Settings {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKeyFields      String   // JSON string storing API keys securely (encrypted/local)
+  limits            String   // JSON string of risk limits/settings
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model APIUsage {
+  id           String   @id @default(uuid())
+  apiName      String   // AlphaVantage, Finnhub, etc.
+  endpoint     String
+  requestsUsed Int
+  requestLimit Int
+  date         String   // YYYY-MM-DD format
+  createdAt    DateTime @default(now())
+}
+
+model Log {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  level     String   // info, warn, error
+  category  String   // api, worker, ai, db, error
+  message   String
+  payload   String?  // JSON string of additional details
+}
+
+model USStock {
+  id            String   @id @default(uuid())
+  ticker        String   @unique
+  name          String
+  sector        String
+  industry      String
+  price         Float
+  change        Float
+  changePercent Float
+  lastUpdated   DateTime @default(now())
+  syncError     String?
+}
+
+model USStockSignal {
+  id               String   @id @default(uuid())
+  ticker           String
+  recommendation   String   // Bullish / Bearish / Neutral
+  confidence       Float
+  riskLevel        String   // Low / Medium / High
+  technicalScore   Float
+  sentimentScore   Float
+  fundamentalScore Float
+  macroScore       Float
+  volatilityScore  Float
+  reasoning        String
+  createdAt        DateTime @default(now())
+}
+
+model USStockWatchlist {
+  id        String   @id @default(uuid())
+  name      String
+  userId    String
+  tickers   String   // JSON array of symbols
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GlobalIndex {
+  id            String   @id @default(uuid())
+  symbol        String   @unique // e.g. ^GSPC, ^IXIC
+  name          String
+  price         Float
+  change        Float
+  changePercent Float
+  lastUpdated   DateTime @default(now())
+}
+
+model CryptoAsset {
+  id            String   @id @default(uuid())
+  symbol        String   @unique // e.g. BTC, ETH
+  name          String
+  coingeckoId   String
+  rank          Int
+  price         Float
+  change24h     Float
+  marketCap     Float
+  volume24h     Float
+  lastUpdated   DateTime @default(now())
+}
+
+model CryptoPrice {
+  id        String   @id @default(uuid())
+  symbol    String
+  timestamp DateTime
+  price     Float
+  volume    Float
+}
+
+model CryptoSignal {
+  id               String   @id @default(uuid())
+  symbol           String
+  recommendation   String
+  confidence       Float
+  riskLevel        String
+  technicalScore   Float
+  sentimentScore   Float
+  onChainScore     Float
+  volumeScore      Float
+  volatilityScore  Float
+  reasoning        String
+  createdAt        DateTime @default(now())
+}
+
+model CryptoPortfolio {
+  id          String   @id @default(uuid())
+  userId      String
+  symbol      String   @unique // BTC, ETH, etc.
+  amount      Float
+  averageCost Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CryptoTransaction {
+  id        String   @id @default(uuid())
+  userId    String
+  symbol    String
+  type      String   // BUY / SELL
+  amount    Float
+  price     Float
+  timestamp DateTime @default(now())
+}
+
+model CryptoWatchlist {
+  id        String   @id @default(uuid())
+  userId    String
+  symbols   String   // JSON string of symbols
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CryptoBacktest {
+  id              String   @id @default(uuid())
+  userId          String
+  symbol          String
+  strategy        String
+  cagr            Float
+  sharpeRatio     Float
+  maxDrawdown     Float
+  tradesCount     Int
+  winRate         Float
+  finalBalance    Float
+  createdAt       DateTime @default(now())
+}
+
+model CryptoNews {
+  id          String   @id @default(uuid())
+  title       String
+  url         String   @unique
+  source      String
+  publishedAt DateTime
+  content     String
+  symbol      String?
+}
+
+model CryptoSentiment {
+  id           String   @id @default(uuid())
+  newsId       String   @unique
+  sentiment    String   // positive / negative / neutral
+  score        Float
+  createdAt    DateTime @default(now())
+}
+
+model CryptoAlert {
+  id         String   @id @default(uuid())
+  userId     String
+  symbol     String
+  type       String   // PRICE_ABOVE / PRICE_BELOW
+  target     Float
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+}
+
+model CryptoModelMetric {
+  id                 String    @id @default(uuid())
+  modelName          String
+  precision          Float
+  recall             Float
+  f1                 Float
+  calibration        Float
+  sampleCount        Int
+  lastValidationDate DateTime
+  createdAt          DateTime  @default(now())
+}
+
+model HistoricalCandle {
+  id     String   @id @default(cuid())
+  ticker String
+  date   DateTime
+  open   Float
+  high   Float
+  low    Float
+  close  Float
+  volume Float?
+
+  @@unique([ticker, date], name: "ticker_date")
+}
